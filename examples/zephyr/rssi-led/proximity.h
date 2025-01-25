@@ -12,7 +12,7 @@
  *  leds: Zephyr LED device (e.g., gpio-leds)
  *  num_leds: number of LEDs the LED device contains
  */
-void proximity_init(const struct device* leds, size_t num_leds);
+void proximity_init(const struct device* leds, const struct device* uart, size_t num_leds);
 
 /** Register a device ID to monitor the RSSI
  *  Arguments:

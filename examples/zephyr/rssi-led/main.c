@@ -7,6 +7,7 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/uart.h>
 
 #include "stdio.h"
 #include "string.h"
@@ -67,8 +68,8 @@ static void cmd_blecon_announce_event(struct blecon_event_t* event, void* user_d
 static struct blecon_event_t* _cmd_blecon_connection_initiate_event = NULL;
 static struct blecon_event_t* _cmd_blecon_announce_event = NULL;
 
-// LEDs
-static const struct device* leds;
+//UART callback (does nothing for now)
+static void uart_cb(const struct device *dev, void *user_data);
 
 void example_on_connection(struct blecon_t* blecon) {
     printk("Connected, sending request.\r\n");
@@ -156,10 +157,6 @@ void example_request_on_closed(struct blecon_request_t* request) {
 
 int main(void)
 {
-#if defined(CONFIG_USB_CDC_ACM)
-    // Give a chance to UART to connect
-    k_sleep(K_MSEC(1000));
-#endif
     // Get event loop
     _event_loop = blecon_zephyr_get_event_loop();
 
@@ -206,14 +203,29 @@ int main(void)
     }
 
     // Init LEDs
-    leds = DEVICE_DT_GET(DT_PATH(leds));
+    const struct device *leds = DEVICE_DT_GET(DT_PATH(leds));
     if (!device_is_ready(leds)) {
         printk("Device %s is not ready\n", leds->name);
-        return 0;
+        return 1;
     }
 
-    // Init proximity monitor module with LEDS
-    proximity_init(leds, 4);
+    // Init UART (on nRF54L15DK this exits on nRF54L15 UART_0 (on Port 0)
+    // Note: The devicetree has pre-set the UART configuration to 115200bps 8N1
+    const struct device *uart = DEVICE_DT_GET(DT_NODELABEL(uart30));
+
+    if (!device_is_ready(uart)) {
+        printk("Device %s is not ready\n", uart->name);
+        return 1;
+    }
+
+    int ret = uart_irq_callback_user_data_set(uart, uart_cb, NULL);
+	if (ret < 0) {
+        printk("Could not set callback");
+        return 1;
+    }
+
+    // Init proximity monitor module with LEDs and UART
+    proximity_init(leds, uart, 4);
 
     // Get our own device ID
     uint8_t self_device_id[BLECON_UUID_SZ];
@@ -292,3 +304,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(blecon,
     SHELL_SUBCMD_SET_END
 );
 SHELL_CMD_REGISTER(blecon, &blecon, "Blecon commands", NULL);
+
+
+static void uart_cb(const struct device *dev, void *user_data)
+{
+	return;
+}

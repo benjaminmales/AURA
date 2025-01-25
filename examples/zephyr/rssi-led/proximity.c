@@ -1,10 +1,16 @@
+#include <stdio.h>
 #include "proximity.h"
 #include "blecon/blecon_util.h"
-#include "zephyr/drivers/led.h"
-#include "zephyr/timing/timing.h"
+#include <zephyr/drivers/uart.h>
+#include <zephyr/drivers/led.h>
+#include <zephyr/timing/timing.h>
+
+//RSSI goes from -128 to 127 + null terminator
+#define RSSI_STR_SZ (4 + 1)
 
 struct proximity_t {
     const struct device* leds;
+    const struct device* uart;
     char device_ids[MAX_DEVICES][BLECON_UUID_STR_SZ];
     bool device_seen[MAX_DEVICES];
     size_t num_devices;
@@ -34,8 +40,9 @@ static uint16_t rssi_to_period(int8_t rssi);
 static void update_led(struct k_timer *timer_id);
 K_TIMER_DEFINE(blink_timer, update_led, NULL);
 
-void proximity_init(const struct device* leds, size_t num_leds) {
+void proximity_init(const struct device* leds, const struct device* uart, size_t num_leds) {
     proximity.leds = leds;
+    proximity.uart = uart;
     proximity.num_devices = 0;
     proximity.num_leds = MIN(num_leds, MAX_DEVICES);
 
@@ -83,6 +90,16 @@ void scan_report_iterator(const struct blecon_modem_peer_scan_report_t* report, 
                 proximity.device_seen[i] = true;
                 proximity.led_period[i] = rssi_to_period(report->rssi);
             }
+        }
+    }
+
+    static char tx_buf[BLECON_UUID_STR_SZ + 1 + RSSI_STR_SZ];
+    size_t len = snprintf(tx_buf, sizeof tx_buf, "%s %d\r\n", uuid_str, report->rssi);
+
+    // Send it out the UART
+    if(len > 0) {
+        for(size_t i=0; i<len; i++) {
+            uart_poll_out(proximity.uart, tx_buf[i]);
         }
     }
 }

@@ -1,0 +1,3 @@
+&uart30 {
+	status = "okay";
+};

@@ -7,6 +7,7 @@ include(../common/config.cmake)
 include(../common/flash_debug.cmake)
 
 set(EXTRA_CONF_FILE ${CMAKE_CURRENT_SOURCE_DIR}/rssi-led.conf)
+set(EXTRA_DTC_OVERLAY_FILE ${CMAKE_CURRENT_SOURCE_DIR}/rssi-led.overlay)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
